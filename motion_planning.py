@@ -2,6 +2,7 @@ import argparse
 import time
 import msgpack
 from enum import Enum, auto
+import random
 
 import numpy as np
 
@@ -156,9 +157,10 @@ class MotionPlanning(Drone):
         data = np.loadtxt('colliders.csv', delimiter=',', dtype='Float64', skiprows=2)
 
         # Define a grid for a particular altitude and safety margin around obstacles
-        grid, north_offset, east_offset = create_grid(data, TARGET_ALTITUDE, SAFETY_DISTANCE)
+        grid, north_offset, east_offset, north_width, east_width = create_grid(data, TARGET_ALTITUDE, SAFETY_DISTANCE)
 
         print("North offset = {0}, east offset = {1}".format(north_offset, east_offset))
+        print("North width  = {0}, east width  = {1}".format(north_width,  east_width ))
         # Define starting point on the grid (this is just grid center)
         # grid_start = (-north_offset, -east_offset)
         # TODO: convert start position to current position rather than map center
@@ -167,14 +169,16 @@ class MotionPlanning(Drone):
         # Set goal as some arbitrary position on the grid
         # grid_goal = (-north_offset + 10, -east_offset + 10)  # too near
 
-        grid_goal = (260, 330)
-        local_position_goal = (260 + north_offset, 330 + east_offset, 0)
-        # check if this position is obstacle
-        if grid[grid_goal[0] + north_offset, grid_goal[1] + east_offset]:
-            print('-- obstacle', grid_goal)
-        else:
-            print('-- no obstacle', grid_goal)
+        grid_goal = get_goal(grid, north_width, east_width)
 
+        # grid_goal = (260, 330)
+        # # check if this position is obstacle
+        # if grid[grid_goal[0] + north_offset, grid_goal[1] + east_offset]:
+        #     print('-- obstacle', grid_goal)
+        # else:
+        #     print('-- no obstacle', grid_goal)
+
+        local_position_goal = (grid_goal[0] + north_offset, grid_goal[1] + east_offset, 0)
         global_position_goal = local_to_global(local_position_goal, self.global_home)
         print('---', global_position_goal)
 
@@ -214,6 +218,15 @@ class MotionPlanning(Drone):
         #    pass
 
         self.stop_log()
+
+def get_goal(grid, north_width, east_width):
+    while True:
+        grid_goal = ( random.randrange(1, north_width),
+                      random.randrange(1, north_width) )
+        # grid_goal = (260, 330)
+        # check if this position is obstacle
+        if not grid[grid_goal[0], grid_goal[1]]:
+            return grid_goal
 
 
 if __name__ == "__main__":
