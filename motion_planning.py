@@ -169,23 +169,15 @@ class MotionPlanning(Drone):
         # Set goal as some arbitrary position on the grid
         # grid_goal = (-north_offset + 10, -east_offset + 10)  # too near
 
-        grid_goal = get_goal(grid, north_width, east_width)
-
-        # grid_goal = (260, 330)
-        # # check if this position is obstacle
-        # if grid[grid_goal[0] + north_offset, grid_goal[1] + east_offset]:
-        #     print('-- obstacle', grid_goal)
-        # else:
-        #     print('-- no obstacle', grid_goal)
-
-        local_position_goal = (grid_goal[0] + north_offset, grid_goal[1] + east_offset, 0)
-        global_position_goal = local_to_global(local_position_goal, self.global_home)
-        print('---', global_position_goal)
+        # TODO: adapt to set goal as latitude / longitude position and convert
+        global_goal_position = self.get_goal(grid, north_offset, east_offset, north_width, east_width)
+        local_goal_position = global_to_local(global_goal_position, self.global_home)
+        grid_goal = (int(np.ceil(local_goal_position[0] - north_offset)) , int(np.ceil(local_goal_position[1] - east_offset)))
+        print('---', grid_goal)
 
         # Check grid, start, end in plot
         show_plot(grid, grid_start, grid_goal)
 
-        # # TODO: adapt to set goal as latitude / longitude position and convert
         # global_goal_position = [-122.40146276, 37.79774413, 0]
         # # print(global_goal_position)
         # local_goal_position = global_to_local(global_goal_position, self.global_home)
@@ -219,14 +211,18 @@ class MotionPlanning(Drone):
 
         self.stop_log()
 
-def get_goal(grid, north_width, east_width):
-    while True:
-        grid_goal = ( random.randrange(1, north_width),
-                      random.randrange(1, north_width) )
-        # grid_goal = (260, 330)
-        # check if this position is obstacle
-        if not grid[grid_goal[0], grid_goal[1]]:
-            return grid_goal
+    def get_goal(self, grid, north_offset, east_offset, north_width, east_width):
+        while True:
+            grid_goal = ( random.randrange(1, north_width),
+                        random.randrange(1, north_width) )
+            # grid_goal = (260, 330)
+            # check if this position is obstacle
+            if not grid[grid_goal[0], grid_goal[1]]:
+                print('-', grid_goal)
+                local_position_goal = (grid_goal[0] + north_offset, grid_goal[1] + east_offset, 0)
+                global_position_goal = local_to_global(local_position_goal, self.global_home)
+                print('--', global_position_goal)
+                return global_position_goal
 
 
 if __name__ == "__main__":
