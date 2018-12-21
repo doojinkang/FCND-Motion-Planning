@@ -12,7 +12,7 @@ Provide a Writeup / README that includes all the rubric points and how you addre
 ## Explain the Starter Code
 
 <p><em>
-Test that motion_planning.py is a modified version of backyard_flyer_solution.py for simple path planning. Verify that both scripts work. Then, compare them side by side and describe in words how each of the modifications implemented in motion_planning.py is functioning.
+[1] Test that motion_planning.py is a modified version of backyard_flyer_solution.py for simple path planning. Verify that both scripts work. Then, compare them side by side and describe in words how each of the modifications implemented in motion_planning.py is functioning.
 </em></p>
 
 - backyard_flyer_solution and motion_planning both are event driven, which event is LOCAL_POSITION, LOCAL_VELOCITY, STATE.
@@ -29,7 +29,7 @@ Test that motion_planning.py is a modified version of backyard_flyer_solution.py
 ## Implementing Your Path Planning Algorithm
 
 <p><em>
-In the starter code, we assume that the home position is where the drone first initializes, but in reality you need to be able to start planning from anywhere. Modify your code to read the global home location from the first line of the colliders.csv file and set that position as global home (self.set_home_position())
+[2] In the starter code, we assume that the home position is where the drone first initializes, but in reality you need to be able to start planning from anywhere. Modify your code to read the global home location from the first line of the colliders.csv file and set that position as global home (self.set_home_position())
 </em></p>
 
 ~~~
@@ -48,7 +48,7 @@ In the starter code, we assume that the home position is where the drone first i
 ~~~
 
 <p><em>
-In the starter code, we assume the drone takes off from map center, but you'll need to be able to takeoff from anywhere. Retrieve your current position in geodetic coordinates from self._latitude, self._longitude and self._altitude. Then use the utility function global_to_local() to convert to local position (using self.global_home as well, which you just set)
+[3] In the starter code, we assume the drone takes off from map center, but you'll need to be able to takeoff from anywhere. Retrieve your current position in geodetic coordinates from self._latitude, self._longitude and self._altitude. Then use the utility function global_to_local() to convert to local position (using self.global_home as well, which you just set)
 </em></p>
 
 - local_position means relative distance from global_home
@@ -61,7 +61,7 @@ In the starter code, we assume the drone takes off from map center, but you'll n
 ~~~
 
 <p><em>
-In the starter code, the start point for planning is hardcoded as map center. Change this to be your current local position.
+[4] In the starter code, the start point for planning is hardcoded as map center. Change this to be your current local position.
 </em></p>
 
 - north_offset, east_offset are mininum of North, East from the function 'create_grid'.
@@ -79,22 +79,105 @@ Since map center is ( -north_offset, -east_offset ), we need to shift it.
 
 
 <p><em>
-In the starter code, the goal position is hardcoded as some location 10 m north and 10 m east of map center. Modify this to be set as some arbitrary position on the grid given any geodetic coordinates (latitude, longitude)
+[5] In the starter code, the goal position is hardcoded as some location 10 m north and 10 m east of map center. Modify this to be set as some arbitrary position on the grid given any geodetic coordinates (latitude, longitude)
 </em></p>
 
--
+- How to get arbitrary(random) goal position
+  1) We can know grid north, east offset and width from create_grid.
+  2) random number between 0 ~ width in both north, east.
+  3) We can get the point if it is not in obstacles
+  4) This is not enough because the point can be surrounded by obstacles.
+
+- Convert the point on the grid into global position
+  1) calculate local_position
+  2) convert to global using local_to_global
+  3) get grid_goal by shifting offset
+
+- Converting looks redundant process, but I wanna make sure the latitude, longitude is not on the obstacles.
+So a_star can find waypoint.
+
+~~~
+    def get_goal(self, grid, north_offset, east_offset, north_width, east_width):
+        while True:
+            grid_goal = ( random.randrange(1, north_width),
+                        random.randrange(1, north_width) )
+            # check if this position is obstacle
+            if not grid[grid_goal[0], grid_goal[1]]:
+                local_position_goal = (grid_goal[0] + north_offset, grid_goal[1] + east_offset, 0)
+                global_position_goal = local_to_global(local_position_goal, self.global_home)
+                print('---', global_position_goal)
+                return global_position_goal
+~~~
+- I put the code show plot of grid, start, goal.
+It helps to see the drone find the right path.
 
 <p><em>
-Write your search algorithm. Minimum requirement here is to add diagonal motions to the A* implementation provided, and assign them a cost of sqrt(2). However, you're encouraged to get creative and try other methods from the lessons and beyond!
+[6] Write your search algorithm. Minimum requirement here is to add diagonal motions to the A* implementation provided, and assign them a cost of sqrt(2). However, you're encouraged to get creative and try other methods from the lessons and beyond!
 </em></p>
 
+- Add add diagonal motions with a cost of sqrt(2) to your A* implementation
+
+~~~
+class Action(Enum):
+    WEST = (0, -1, 1)
+    EAST = (0, 1, 1)
+    NORTH = (-1, 0, 1)
+    SOUTH = (1, 0, 1)
+    NORTH_WEST = (-1, -1, np.sqrt(2))
+    NORTH_EAST = (-1, 1, np.sqrt(2))
+    SOUTH_WEST = (1, -1, np.sqrt(2))
+    SOUTH_EAST = (1, 1, np.sqrt(2))
+
+
+def valid_actions(grid, current_node):
+    valid_actions = list(Action)
+    n, m = grid.shape[0] - 1, grid.shape[1] - 1
+    x, y = current_node
+
+    if x - 1 < 0 or grid[x - 1, y] == 1:
+        valid_actions.remove(Action.NORTH)
+    if x + 1 > n or grid[x + 1, y] == 1:
+        valid_actions.remove(Action.SOUTH)
+    if y - 1 < 0 or grid[x, y - 1] == 1:
+        valid_actions.remove(Action.WEST)
+    if y + 1 > m or grid[x, y + 1] == 1:
+        valid_actions.remove(Action.EAST)
+
+    if (x - 1 < 0 or y - 1 < 0) or grid[x - 1, y - 1] == 1:
+        valid_actions.remove(Action.NORTH_WEST)
+    if (x - 1 < 0 or y + 1 > m) or grid[x - 1, y + 1] == 1:
+        valid_actions.remove(Action.NORTH_EAST)
+    if (x + 1 > n or y - 1 < 0) or grid[x + 1, y - 1] == 1:
+        valid_actions.remove(Action.SOUTH_WEST)
+    if (x + 1 > n or y + 1 > m) or grid[x + 1, y + 1] == 1:
+        valid_actions.remove(Action.SOUTH_EAST)
+
+    return valid_actions
+
+~~~
+
+- Heuristic function modification in planning_utils.py
+
+~~~
+def heuristic(position, goal_position):
+    # return np.linalg.norm(np.array(position) - np.array(goal_position))
+    return np.sqrt((position[0] - goal_position[0])**2 + (position[1] - goal_position[1])**2)
+~~~
+
 <p><em>
-Cull waypoints from the path you determine using search.
+[7] Cull waypoints from the path you determine using search.
 </em></p>
+
+- Using a-star algorithm needs pruning path.
+- Reuse collinearity_float function learned in the class
 
 ## Executing the flight
+
+![map2](./report/map2.png)
 
 <p><em>
 This is simply a check on whether it all worked. Send the waypoints and the autopilot should fly you from start to goal!
 </em></p>
 
+https://youtu.be/Tl3YEXnJNzk
+https://youtu.be/Nr60xrfQB80
