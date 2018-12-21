@@ -160,35 +160,29 @@ def heuristic(position, goal_position):
     return np.sqrt((position[0] - goal_position[0])**2 + (position[1] - goal_position[1])**2)
 
 
-import math as math
-
-def point(p):
-    return np.array([p[0], p[1], 1.]).reshape(1, -1)
-
-def collinearity_check(p1, p2, p3, epsilon=1e-6):
-    m = np.concatenate((p1, p2, p3), 0)
-    det = np.linalg.det(m)
+def collinearity_float(p1, p2, p3, epsilon=1e-6):
+    q1 = np.array([p1[0], p1[1], 1.0])
+    q2 = np.array([p2[0], p2[1], 1.0])
+    q3 = np.array([p3[0], p3[1], 1.0])
+    matrix = np.array([q1, q2, q3])
+    det = np.linalg.det(matrix)
     return abs(det) < epsilon
 
 def prune_path(path):
-    pruned_path = [p for p in path]
+    pruned_path = list(path)
 
     i = 0
     while i < len(pruned_path) - 2:
-        p1 = point(pruned_path[i])
-        p2 = point(pruned_path[i+1])
-        p3 = point(pruned_path[i+2])
-
-        # If the 3 points are in a line remove
-        # the 2nd point.
-        # The 3rd point now becomes and 2nd point
-        # and the check is redone with a new third point
-        # on the next iteration.
-        if collinearity_check(p1, p2, p3):
-            # Something subtle here but we can mutate
-            # `pruned_path` freely because the length
-            # of the list is check on every iteration.
+        p1 = pruned_path[i]
+        p2 = pruned_path[i+1]
+        p3 = pruned_path[i+2]
+        if collinearity_float(p1, p2, p3):
             pruned_path.remove(pruned_path[i+1])
         else:
             i += 1
     return pruned_path
+
+# test prune
+if __name__ == "__main__":
+    path = [ (1,2), (2,3), (3,4) ]
+    print(prune_path(path))
