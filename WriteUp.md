@@ -1,13 +1,14 @@
-# FCND - 3D Motion Planing
+## Project: 3D Motion Planning
 
-## Writeup
+### Writeup / README
 
 <p><em>
 Provide a Writeup / README that includes all the rubric points and how you addressed each one. You can submit your writeup as markdown or pdf.
 </em></p>
 
-- This MyReadme.md includes the rubric points and explain how I addressed each point.
+- This WriteUp.md includes the rubric points and explain how I addressed each point.
 
+![flying1](./report/flying1.png)
 
 ## Explain the Starter Code
 
@@ -164,12 +165,75 @@ def heuristic(position, goal_position):
     return np.sqrt((position[0] - goal_position[0])**2 + (position[1] - goal_position[1])**2)
 ~~~
 
+- Medial Axis as well as Grid
+1. command line
+- Run "python motion_planning.py --method medial", graph produced by medial_axis will be used for searching path.
+~~~
+    skeleton = medial_axis(invert(grid))
+    skel_cells = np.transpose(skeleton.nonzero())
+    start_min_dist = np.linalg.norm(np.array(grid_start) - np.array(skel_cells), axis=1).argmin()
+    near_start = skel_cells[start_min_dist]
+    goal_min_dist = np.linalg.norm(np.array(grid_goal) - np.array(skel_cells), axis=1).argmin()
+    near_goal = skel_cells[goal_min_dist]
+    print('Local nearest Start and Goal: ', near_start, near_goal)
+    inv_skel = invert(skeleton).astype(np.int)
+    path, _ = a_star(inv_skel, heuristic, intTuple(near_start), intTuple(near_goal))
+    path = prune_path(path, 1e-1)
+~~~
+
+2. intTuple function
+- convert numpy.Int64 to int.
+- msgpack.dumps failes handling numpy.Int64 type
+~~~
+def intTuple(numpyInt64):
+    x = int(numpyInt64[0])
+    y = int(numpyInt64[1])
+    return (x, y)
+~~~
+
+3. Compare grid and medial_axis graph
+
+ \ | Grid | Graph
+--- | --- | ---
+Flight | Sometimes too close to obstacles | Stable
+Computation time | long | rather short
+Path count | large | small
+Path count after Prune | small | not shrinked well
+
+- Using Graph is more efficient and stable.
+- Using Graph need some special prune method to decrease waypoints count.
+Here I set epsilon large.
+
 <p><em>
 [7] Cull waypoints from the path you determine using search.
 </em></p>
 
 - Using a-star algorithm needs pruning path.
-- Reuse collinearity_float function learned in the class
+- Tolerance (epsilon) can be set as parameter.
+
+~~~
+def collinearity_float(p1, p2, p3, epsilon):
+    q1 = np.array([p1[0], p1[1], 1.0])
+    q2 = np.array([p2[0], p2[1], 1.0])
+    q3 = np.array([p3[0], p3[1], 1.0])
+    matrix = np.array([q1, q2, q3])
+    det = np.linalg.det(matrix)
+    return abs(det) < epsilon
+
+def prune_path(path, epsilon=1e-6):
+    pruned_path = list(path)
+
+    i = 0
+    while i < len(pruned_path) - 2:
+        p1 = pruned_path[i]
+        p2 = pruned_path[i+1]
+        p3 = pruned_path[i+2]
+        if collinearity_float(p1, p2, p3, epsilon):
+            pruned_path.remove(pruned_path[i+1])
+        else:
+            i += 1
+    return pruned_path
+~~~
 
 ## Executing the flight
 
@@ -179,5 +243,9 @@ def heuristic(position, goal_position):
 This is simply a check on whether it all worked. Send the waypoints and the autopilot should fly you from start to goal!
 </em></p>
 
-https://youtu.be/Tl3YEXnJNzk
-https://youtu.be/Nr60xrfQB80
+- Grid 1 : https://youtu.be/Tl3YEXnJNzk
+- Grid 2 : https://youtu.be/Nr60xrfQB80
+Second Flight starts the point where first flight ends.
+
+- Graph : https://youtu.be/iKIW_ffsvSg
+Medial_Asix Graph
