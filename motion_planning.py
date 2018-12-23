@@ -6,6 +6,9 @@ import random
 
 import numpy as np
 
+from skimage.morphology import medial_axis
+from skimage.util import invert
+
 from planning_utils import a_star, heuristic, create_grid, prune_path
 from plot_utils import show_plot
 from udacidrone import Drone
@@ -13,6 +16,10 @@ from udacidrone.connection import MavlinkConnection
 from udacidrone.messaging import MsgID
 from udacidrone.frame_utils import global_to_local, local_to_global
 
+def intTuple(numpyInt64):
+    x = int(numpyInt64[0])
+    y = int(numpyInt64[1])
+    return (x, y)
 
 class States(Enum):
     MANUAL = auto()
@@ -26,8 +33,9 @@ class States(Enum):
 
 class MotionPlanning(Drone):
 
-    def __init__(self, connection):
+    def __init__(self, connection, method):
         super().__init__(connection)
+        self.method = method    # grid / medial
 
         self.target_position = np.array([0.0, 0.0, 0.0])
         self.waypoints = []
@@ -174,11 +182,24 @@ class MotionPlanning(Drone):
         # TODO: add diagonal motions with a cost of sqrt(2) to your A* implementation
         # or move to a different search space such as a graph (not done here)
         print('Local Start and Goal: ', grid_start, grid_goal)
-        path, _ = a_star(grid, heuristic, grid_start, grid_goal)
-        # TODO: prune path to minimize number of waypoints
-        path = prune_path(path)
 
-        # TODO (if you're feeling ambitious): Try a different approach altogether!
+        path = []
+        if self.method == 'grid':
+            path, _ = a_star(grid, heuristic, grid_start, grid_goal)
+            # TODO: prune path to minimize number of waypoints
+            path = prune_path(path)
+        else:       # medial
+            # TODO (if you're feeling ambitious): Try a different approach altogether!
+            skeleton = medial_axis(invert(grid))
+            skel_cells = np.transpose(skeleton.nonzero())
+            start_min_dist = np.linalg.norm(np.array(grid_start) - np.array(skel_cells), axis=1).argmin()
+            near_start = skel_cells[start_min_dist]
+            goal_min_dist = np.linalg.norm(np.array(grid_goal) - np.array(skel_cells), axis=1).argmin()
+            near_goal = skel_cells[goal_min_dist]
+            print('Local nearest Start and Goal: ', near_start, near_goal)
+            inv_skel = invert(skeleton).astype(np.int)
+            path, _ = a_star(inv_skel, heuristic, intTuple(near_start), intTuple(near_goal))
+            path = prune_path(path, 1e-1)
 
         # Check grid, start, end, path in plot
         show_plot(grid, grid_start, grid_goal, path)
@@ -220,10 +241,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--port', type=int, default=5760, help='Port number')
     parser.add_argument('--host', type=str, default='127.0.0.1', help="host address, i.e. '127.0.0.1'")
+    parser.add_argument('--method', type=str, default='grid', help="method, i.e. 'grid', 'medial'")
     args = parser.parse_args()
 
     conn = MavlinkConnection('tcp:{0}:{1}'.format(args.host, args.port), timeout=60)
-    drone = MotionPlanning(conn)
+    drone = MotionPlanning(conn, args.method)
     time.sleep(1)
 
     drone.start()
