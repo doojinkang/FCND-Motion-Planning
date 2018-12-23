@@ -160,7 +160,7 @@ def heuristic(position, goal_position):
     return np.sqrt((position[0] - goal_position[0])**2 + (position[1] - goal_position[1])**2)
 
 
-def collinearity_float(p1, p2, p3, epsilon=1e-6):
+def collinearity_float(p1, p2, p3, epsilon):
     q1 = np.array([p1[0], p1[1], 1.0])
     q2 = np.array([p2[0], p2[1], 1.0])
     q3 = np.array([p3[0], p3[1], 1.0])
@@ -168,7 +168,7 @@ def collinearity_float(p1, p2, p3, epsilon=1e-6):
     det = np.linalg.det(matrix)
     return abs(det) < epsilon
 
-def prune_path(path):
+def prune_path(path, epsilon=1e-6):
     pruned_path = list(path)
 
     i = 0
@@ -176,7 +176,7 @@ def prune_path(path):
         p1 = pruned_path[i]
         p2 = pruned_path[i+1]
         p3 = pruned_path[i+2]
-        if collinearity_float(p1, p2, p3):
+        if collinearity_float(p1, p2, p3, epsilon):
             pruned_path.remove(pruned_path[i+1])
         else:
             i += 1
